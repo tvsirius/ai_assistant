@@ -1,7 +1,6 @@
-
 from flask import Flask, redirect, render_template, request, url_for
 
-main = Flask(__name__)
+server = Flask(__name__)
 
 from langchain.chat_models import ChatOpenAI
 from langchain.schema import (
@@ -12,10 +11,12 @@ from langchain.schema import (
     Document,
     messages_from_dict, messages_to_dict
 )
-import json, os, sys
+import json, os
+import chromadb
 
 from langchain.memory import ConversationBufferMemory, ChatMessageHistory
 from langchain import OpenAI, PromptTemplate, LLMChain
+
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import Chroma
 
@@ -38,6 +39,8 @@ chat = ChatOpenAI(temperature=0.6, model_name="gpt-3.5-turbo",
                   openai_api_key=OPENAI_API_KEY,
                   )
 
+# embedding = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
+
 prompt = PromptTemplate(
     input_variables=["history", "human_input"],
     template=template
@@ -49,51 +52,84 @@ conversation = LLMChain(
     memory=ConversationBufferMemory(return_messages=True),
     prompt=prompt,
 )
+embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY,model="text-embedding-ada-002")
+
+CHROMA_ID_FULL_JSON = 'CHROMA_ID_FULL_JSON'
+
+JSON_FILENAME='conversation.json'
+
+def load_from_json():
+    if os.path.exists(JSON_FILENAME):
+        try:
+            with open(JSON_FILENAME, 'r', encoding='utf-8') as filename:
+                messages=json.loads(filename.read())
+            if messages:
+                return messages
+        except:
+            pass
+
+def save_to_json(json):
+    with open(JSON_FILENAME, 'w', encoding='utf-8') as filename:
+        filename.write(json)
+
+def load_from_vectorstore():
+
+    ABS_PATH = os.path.dirname(os.path.abspath(__file__))
+    DB_DIR = os.path.join(ABS_PATH, "db")
+
+    client_settings = chromadb.config.Settings(
+        chroma_db_impl="duckdb+parquet",
+        persist_directory=DB_DIR,
+        anonymized_telemetry=False
+    )
+
+    vectorstore = Chroma(
+        collection_name="langchain_store",
+        embedding_function=embeddings,
+        client_settings=client_settings,
+        persist_directory=DB_DIR,
+    )
+    read_history = vectorstore._collection.get(ids=[CHROMA_ID_FULL_JSON],include=["documents"])
+    print(read_history)
+    vectorstore=None
+    client_settings=None
+    if len(read_history['documents']) > 0 and len(read_history['documents'][0]) > 0:
+        return messages_from_dict(json.loads(read_history['documents'][0]))
+    chromadb.Client().reset()
+
+def save_to_vectorstore(ids,json):
+    ABS_PATH = os.path.dirname(os.path.abspath(__file__))
+    DB_DIR = os.path.join(ABS_PATH, "db")
+
+    client_settings = chromadb.config.Settings(
+        chroma_db_impl="duckdb+parquet",
+        persist_directory=DB_DIR,
+        anonymized_telemetry=False
+    )
+
+    vectorstore = Chroma(
+        collection_name="langchain_store",
+        embedding_function=embeddings,
+        client_settings=client_settings,
+        persist_directory=DB_DIR,
+    )
+    vectorstore.add_texts(texts=[json], ids=ids)
+    vectorstore.persist()
+    vectorstore=None
+    client_settings=None
+    chromadb.Client().reset()
 
 
 
-import chromadb
-from chromadb.utils import embedding_functions
-
-
-ABS_PATH = os.path.dirname(os.path.abspath(__file__))
-DB_DIR = os.path.join(ABS_PATH, "db")
-CHROMA_ID_FULL_JSON='CHROMA_ID_FULL_JSON'
-
-client_settings = chromadb.config.Settings(
-    chroma_db_impl="duckdb+parquet",
-    persist_directory=DB_DIR,
-    anonymized_telemetry=False
-)
-embeddings = OpenAIEmbeddings(
-                openai_api_key=OPENAI_API_KEY,
-                model="text-embedding-ada-002"
-            )
-
-
-vectorstore = Chroma(
-    collection_name="langchain_store",
-    embedding_function=embeddings,
-    client_settings=client_settings,
-    persist_directory=DB_DIR,
-)
-
-# vectorstore.persist()
-# vectorstore.delete_collection()
-
-print(vectorstore.get())
-read_history = vectorstore._collection.get(ids=[CHROMA_ID_FULL_JSON],include=["documents"])
-print(read_history)
-if len(read_history['documents'])>0 and len(read_history['documents'][0])>0:
-    conversation.memory = ConversationBufferMemory(
-         chat_memory=ChatMessageHistory(messages=messages_from_dict(json.loads(read_history['documents'][0]))),
-         return_messages=True)
+@server.before_first_request
+def load_collection():
+    get_messages=load_from_json()
+    if get_messages:
+        conversation.memory = ConversationBufferMemory( chat_memory=ChatMessageHistory(messages=messages_from_dict(get_messages)), return_messages=True)
 
 
 
-
-
-@app.route("/", methods=("GET", "POST"))
+@server.route("/", methods=("GET", "POST"))
 def index():
 
     def message_formatted(message: BaseMessage):
@@ -104,6 +140,7 @@ def index():
         else:
             text_from = 'System: '
         return '<b>' + text_from + '</b>' + message.content + '<br>'
+
 
     if request.method == "POST":
         human_text = request.form["text"]
@@ -118,32 +155,29 @@ def index():
 
         history_json=json.dumps(messages_to_dict(history))
 
-        vectorstore._collection.upsert(ids=CHROMA_ID_FULL_JSON, documents=[history_json])
-        vectorstore.persist()
-        print(vectorstore._collection)
-        print(vectorstore.get())
+        # save_to_vectorstore(CHROMA_ID_FULL_JSON,history_json)
 
-        return redirect(url_for("index", result='<br>\n'.join([message_formatted(message) for message in history])))
+        save_to_json(history_json)
+
+        return redirect(url_for("index",))
 
     history = conversation.memory.load_memory_variables({})['history']
+    print(history)
     result = '<br>\n'.join([message_formatted(message) for message in history])
 
-    print(vectorstore._collection)
-    print(vectorstore.get())
-    vectorstore.persist()
     return render_template("index.html", result=result)
 
-# print()
-#
-# vectorstore.persist()
 
-if __name__ == "__main__":
-    try:
-        app.run()
-    except KeyboardInterrupt:
-        print("Flask application is terminating...")
-        vectorstore.persist()
-        vectorstore = None
-        # Add any cleanup code or necessary actions here
-        # For example, closing database connections, saving data, etc.
-        sys.exit()
+"""
+def server_shutdown():
+    print("Application is terminating...")
+    global vectorstore
+    if vectorstore: vectorstore.persist()
+    # print(vectorstore.persist())
+    # print("Vectorstore persisted...")
+    # print(vectorstore._client.persist())
+    # print("Vectorstore client persisted...")
+    vectorstore = None
+    print("Vectorstore set none...")
+#
+"""
