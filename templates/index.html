@@ -1,21 +1,30 @@
 <!DOCTYPE html>
 <head>
-  <title>OpenAI Quickstart</title>
+  <title>AI Assistant</title>
   <link
     rel="shortcut icon"
-    href="{{ url_for('static', filename='dog.png') }}"
+    href="{{ url_for('static', filename='image1.gif') }}"
   />
   <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}" />
 </head>
 
+<script>
+    window.onload = function() {
+        var inputField = document.getElementById('myInputField');
+        inputField.scrollIntoView();
+    };
+</script>
+
 <body>
-  <img src="{{ url_for('static', filename='dog.png') }}" class="icon" />
-  <h3>Name my pet</h3>
-  <form action="/" method="post">
-    <input type="text" name="animal" placeholder="Enter an animal" required />
-    <input type="submit" value="Generate names" />
-  </form>
+  <img src="{{ url_for('static', filename='image1.gif') }}" class="icon" />
+  <h3>Greeting Human!</h3>
   {% if result %}
-  <div class="result">{{ result }}</div>
+  <div class="result">    {{ result|safe }}   </div>
   {% endif %}
+
+  <form action="/" method="post">
+    <input type="text" name="text" placeholder="Talk to me" id="myInputField" required />
+    <input type="submit" value="Get response" />
+  </form>
+
 </body>
