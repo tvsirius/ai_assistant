@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<head>
+  <title>AI Assistant</title>
+  <link
+    rel="shortcut icon"
+    href="{{ url_for('static', filename='image1.gif') }}"
+  />
+  <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}" />
+</head>
+
+<body>
+  <img src="{{ url_for('static', filename='image1.gif') }}" class="icon" />
+  <h3>Greeting Human!</h3>
+  <form action="/" method="post">
+    <input type="text" name="text" placeholder="Talk to me" required />
+    <input type="submit" value="Get response" />
+  </form>
+  {% if result %}
+  <div class="result">{{ result }}</div>
+  {% endif %}
+</body>
