@@ -1,9 +1,7 @@
 import sys
 
 from flask import Flask, redirect, render_template, request, url_for
-from flask.cli import run_command
 
-from werkzeug.serving import make_server
 
 server = Flask(__name__)
 
@@ -29,20 +27,7 @@ from dotenv import dotenv_values
 env_vars = dotenv_values('.env')
 OPENAI_API_KEY = env_vars['OPENAI_API_KEY']
 
-'''import signal
 
-
-def shutdown(signal, frame):
-    print('Shutting down server...')
-    shutdown_server()
-
-
-@server.cli.command("run", short_help="Runs the Flask development server.")
-def run_with_shutdown():
-    signal.signal(signal.SIGINT, shutdown)
-    run_command()
-
-'''
 template = """Assistant is a large language model trained by OpenAI. 
 Assistant is a powerful tool that can help with a wide range of tasks and provide valuable insights and information 
 on a wide range of topics. Whether you need help with a specific question or just want to have a conversation 
@@ -74,24 +59,6 @@ conversation = LLMChain(
 embeddings = None
 # embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY, model="text-embedding-ada-002")
 
-JSON_FILENAME = 'conversation.json'
-
-
-def load_from_json():
-    if os.path.exists(JSON_FILENAME):
-        try:
-            with open(JSON_FILENAME, 'r', encoding='utf-8') as filename:
-                messages = json.loads(filename.read())
-            if messages:
-                return messages
-        except:
-            pass
-
-
-def save_to_json(json):
-    with open(JSON_FILENAME, 'w', encoding='utf-8') as filename:
-        filename.write(json)
-
 
 ABS_PATH = os.path.dirname(os.path.abspath(__file__))
 DB_DIR = os.path.join(ABS_PATH, "db")
@@ -117,21 +84,6 @@ else:
 #
 
 def load_from_vectorstore():
-    """  ABS_PATH = os.path.dirname(os.path.abspath(__file__))
-    DB_DIR = os.path.join(ABS_PATH, "db")
-
-    client_settings = chromadb.config.Settings(
-        # chroma_db_impl="duckdb+parquet",
-        persist_directory=DB_DIR,
-        anonymized_telemetry=False
-    )
-
-    vectorstore = Chroma(
-        # collection_name="langchain_store",
-        embedding_function=embeddings,
-        # client_settings=client_settings,
-        persist_directory=DB_DIR,
-    )"""
     read_history = vectorstore._collection.get(ids=[CHROMA_ID_FULL_JSON], include=["documents"])
     print(read_history)
     if len(read_history['documents']) > 0 and len(read_history['documents'][0]) > 0:
@@ -139,25 +91,7 @@ def load_from_vectorstore():
 
 
 def save_to_vectorstore(ids, text):
-    """    ABS_PATH = os.path.dirname(os.path.abspath(__file__))
-    DB_DIR = os.path.join(ABS_PATH, "db")
-
-    client_settings = chromadb.config.Settings(
-        # chroma_db_impl="duckdb+parquet",
-        persist_directory=DB_DIR,
-        # anonymized_telemetry=False
-    )
-
-    vectorstore = Chroma(
-        # collection_name="langchain_store",
-        embedding_function=embeddings,
-        # client_settings=client_settings,
-        persist_directory=DB_DIR,
-    )"""
-    doc = Document(page_content=text)
     vectorstore._collection.upsert(ids=[ids], documents=[text])
-    # vectorstore.update_document(document_id=ids, document=doc)
-    # vectorstore=Chroma.from_texts(ids=ids, texts=[text], persist_directory=DB_DIR, embedding=embeddings)
     vectorstore.persist()
 
 
@@ -175,52 +109,28 @@ print('history_text=', history_text)
 
 @server.route("/", methods=("GET", "POST"))
 def index():
-    '''    def message_formatted(message: BaseMessage):
-        if type(message) == type(AIMessage(content="")):
-            text_from = 'Assistant: '
-        elif type(message) == type(HumanMessage(content="")):
-            text_from = 'Human: '
-        else:
-            text_from = 'System: '
-        return '<b>' + text_from + '</b>' + message.content + '<br>'
-    '''
     global history_text
     if request.method == "POST":
         human_text = request.form["text"]
         if human_text == 'clear history':
             history_text = ''
             conversation.memory.clear()
-        elif human_text == 'exit':
-            exit(0)
         else:
             print(f'sending req. hyman text={human_text}, history_text={history_text}')
             response = conversation.predict(human_input=human_text, history=history_text)
             print(f'response={response}')
-
         print(
             f'conversation.memory.load_memory_variables()["history"]={conversation.memory.load_memory_variables({})["history"]}')
-
         history_text = conversation.memory.load_memory_variables({})['history']
-
-        # print('-----\n\n--history_text = conversation.memory.load_memory_variables({})-\n\n---------')
-        # print(history_text)
-
         save_to_vectorstore(CHROMA_ID_FULL_JSON, history_text)
-
-        return redirect(url_for("index", ))
+        return redirect(url_for("index", result=history_text))
 
     # history = conversation.memory.load_memory_variables({})['history']
     # print(history_text)
-    print(load_from_vectorstore())
-    # result = '<br>\n'.join([message_formatted(message) for message in history])
+    # print(load_from_vectorstore())
 
     return render_template("index.html", result=history_text)
 
-
-def shutdown_server():
-    print('SHUTDOWN!')
-    db_shutdown()
-    sys.exit(0)
 
 
 @server.route('/shutdown', methods=['POST'])
@@ -228,13 +138,12 @@ def shutdown():
     shutdown_server()
     return 'Server shutting down...'
 
+def shutdown_server():
+    print('SHUTDOWN!')
+    db_shutdown()
+    sys.exit(0)
 
 def db_shutdown():
-    # print('SHUTDOWN!')
-    global vectorstore, chat, prompt, conversation, server
+    global vectorstore
     vectorstore.persist()
-    # chat=None
-    # prompt=None
-    # conversation=None
-    # server=None
     vectorstore = None
