@@ -29,31 +29,42 @@ env_vars = dotenv_values('.env')
 OPENAI_API_KEY = env_vars['OPENAI_API_KEY']
 
 
-template = """Assistant is a large language model trained by OpenAI. 
-Assistant is a powerful tool that can help with a wide range of tasks and provide valuable insights and information 
-on a wide range of topics. Whether you need help with a specific question or just want to have a conversation 
-about a particular topic, Assistant is here to assist.
-{history}
-Human: {human_input}
-Assistant:"""
-
-DEFAULT_SYSTEM_PREFIX = ''''''
-
-chat = ChatOpenAI(temperature=0.6, model_name="gpt-3.5-turbo",
+chat = ChatOpenAI(temperature=0.9, model_name="gpt-3.5-turbo",
                   openai_api_key=OPENAI_API_KEY,
                   )
 
 embedding = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
 
-prompt = PromptTemplate(
+
+from ai_init_strings import ai_init_string
+
+template = """{ai_init_string}
+{history}
+Human: {human_input}
+Assistant:"""
+
+def history_formatter(message_list: list[dict]) -> str:
+    result = ''
+    for message in message_list:
+        result += message["type"] + ': ' + message["data"]["content"] + "\n"
+    return result
+class CustomPromt(PromptTemplate):
+    def format(self, **kwargs) -> str:
+        kwargs = self._merge_partial_and_user_variables(**kwargs)
+        kwargs["history"]=history_formatter(messages_to_dict(kwargs["history"]))
+        return super().format(**kwargs)
+
+
+prompt = CustomPromt(
     input_variables=["history","human_input"],
-    template=template
+    template=template,
+    partial_variables={"ai_init_string": ai_init_string['default']}
 )
 
 conversation = LLMChain(
     llm=chat,
     verbose=True,
-    memory=ConversationSummaryBufferMemory(llm=chat,  max_token_limit=1000, return_messages=True),
+    memory=ConversationSummaryBufferMemory(llm=chat,  max_token_limit=200, return_messages=True),
     prompt=prompt,
 )
 
@@ -105,21 +116,19 @@ def load_history():
     else:
         return ''
 
-
 history_dict = load_history()
 history_messages=messages_from_dict(history_dict)
 # history_text = load_history()
 history_text = str(history_dict)
-print('history_text=', history_dict)
-print('history_messages=', history_messages)
+# print('history_text=', history_dict)
+# print('history_messages=', history_messages)
 
 if history_messages:
     conversation.memory.chat_memory.messages=history_messages
     conversation.memory.predict_new_summary(history_messages, '')
 
-
 print(conversation.memory.load_memory_variables({}))
-print(conversation.memory.buffer)
+# print(conversation.memory.buffer)
 
 
 
@@ -137,10 +146,12 @@ def index():
         human_text = request.form["text"]
         if human_text == 'clear history':
             history_text = ''
+            history_dict=[]
             conversation.memory.clear()
+            return redirect(url_for("index", ))
         else:
             print(f'sending req. hyman text={human_text}')
-            response = conversation.predict(human_input=human_text, history='')
+            response = conversation.predict(human_input=human_text)
             print(f'response={response}')
         history_dict=messages_to_dict(conversation.memory.load_memory_variables({})["history"])
         print(
