@@ -2,6 +2,8 @@
 db/
 conversation.json
 .chroma/
+deprecated.py
+
 
 
 
