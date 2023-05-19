@@ -1,5 +1,5 @@
 
-from server import server, shutdown_server, load_history
+from server import server, shutdown_server
 
 
 from werkzeug.serving import make_server
