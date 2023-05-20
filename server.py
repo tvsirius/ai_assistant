@@ -10,8 +10,6 @@ from langchain import OpenAI, PromptTemplate, LLMChain, ConversationChain
 
 from vectorstore import vectorstore, load_history, load_from_vectorstore, save_to_vectorstore, CHROMA_ID_FULL_JSON
 
-
-
 # import whisper
 import openai
 # import pyttsx3
@@ -26,15 +24,18 @@ server = Flask(__name__)
 
 def history_formatter(message_list: list[dict]) -> str:
     result = ''
-    for message in message_list:
-        result += message["type"] + ': ' + message["data"]["content"] + "\n"
+    if message_list and len(message_list) > 0:
+        for message in message_list:
+            result += message["type"] + ': ' + message["data"]["content"] + "\n"
     return result
+
 
 class CustomPromt(PromptTemplate):
     def format(self, **kwargs) -> str:
         kwargs = self._merge_partial_and_user_variables(**kwargs)
         kwargs["history"] = history_formatter(messages_to_dict(kwargs["history"]))
         return super().format(**kwargs)
+
 
 from ai_roles import ai_init_string
 
@@ -43,8 +44,7 @@ template = """{ai_init_string}
 Human: {human_input}
 Assistant:"""
 
-
-AI_ASSISTANT_ROLE='alien'
+AI_ASSISTANT_ROLE = 'alien'
 
 prompt = CustomPromt(
     input_variables=["history", "human_input"],
@@ -59,17 +59,18 @@ chat = ChatOpenAI(temperature=ai_init_string[AI_ASSISTANT_ROLE]['temperature'], 
 conversation = LLMChain(
     llm=chat,
     verbose=True,
-    memory=ConversationSummaryBufferMemory(llm=chat, max_token_limit=100, return_messages=True),
+    memory=ConversationSummaryBufferMemory(llm=chat, max_token_limit=2000, return_messages=True),
     prompt=prompt,
 )
 
 history_dict = load_history()
-history_text =  history_formatter(history_dict)
-history_messages = messages_from_dict(history_dict)
+if history_dict and len(history_dict) > 0:
+    history_text = history_formatter(history_dict)
+    history_messages = messages_from_dict(history_dict)
 
-if history_messages:
-    conversation.memory.chat_memory.messages = history_messages
-    # conversation.memory.predict_new_summary(history_messages, '')
+    if history_messages:
+        conversation.memory.chat_memory.messages = history_messages
+        # conversation.memory.predict_new_summary(history_messages, '')
 
 print(conversation.memory.load_memory_variables({}))
 
@@ -84,7 +85,7 @@ def chat_process_input(human_text):
         conversation.memory.clear()
         print(f'conversation.memory history={history_dict}')
         save_to_vectorstore(CHROMA_ID_FULL_JSON, history_dict)
-        return ''
+        return 'conversation history cleaned'
     else:
         print(f'sending req. human text={human_text}')
         response_text = conversation.predict(human_input=human_text)
@@ -124,6 +125,7 @@ def record():
     # return redirect(url_for("index", ))
     return {"input": human_text, "output": response_text}
 
+
 @server.route("/", methods=("GET", "POST"))
 def index():
     def html_formatter(message_list: list[dict]) -> str:
@@ -133,22 +135,28 @@ def index():
         return result
 
     if request.method == "POST":
-        print(" FORM POST REQUEST ")
+        print(" / POST REQUEST ")
         human_text = request.form["text"]
         if len(human_text) > 0:
             response_text = chat_process_input(human_text)
         else:
             response_text = ''
 
-        return redirect(url_for("index",  )) #last_response=response_text,
+        return redirect(url_for("index", ))  # last_response=response_text
 
-    # print('getting get_last_response=',)
+    print(" / GET REQUEST ")
     # get_last_response = request.args.get('last_response')
-    # if get_last_response and len(get_last_response) > 0 and get_last_response != history_dict[-1]["data"]["content"]:
-    #     result_str=html_formatter(history_dict + [{'type': 'ai', 'data': {'content': get_last_response}}])
-    # else:
-    result_str=html_formatter(history_dict)
-    return render_template("index.html", result=result_str)
+    # print('get_last_response=',get_last_response)
+    if history_dict and len(history_dict) > 0:
+        # if get_last_response and len(get_last_response) > 0 and get_last_response != history_dict[-1]["data"]["content"]:
+        #     result_str = html_formatter(history_dict + [{'type': 'ai', 'data': {'content': get_last_response}}])
+        # else:
+        result_str = html_formatter(history_dict)
+    # elif get_last_response=='conversation history cleaned':
+    #         result_str='<b>System: </b> Conversation history cleaned <br>'
+    else:
+        result_str = ''
+    return render_template("index.html", result=result_str, )
 
 
 @server.route('/shutdown', methods=['POST'])
