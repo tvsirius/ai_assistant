@@ -10,7 +10,7 @@ from ai_roles import ai_init_string
 
 server = Flask(__name__)
 
-AI_ROLE = 'divine_ai'
+AI_ROLE = "default"
 
 # roles are defined in ai_roles.py
 # for now there are: "default", "elf", "alien", "divine_ai"
