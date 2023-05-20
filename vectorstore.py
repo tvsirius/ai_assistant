@@ -1,4 +1,3 @@
-
 import os, json
 from langchain.vectorstores import Chroma
 from langchain.embeddings import OpenAIEmbeddings
@@ -15,8 +14,7 @@ embeddings = None
 
 ABS_PATH = os.path.dirname(os.path.abspath(__file__))
 DB_DIR = os.path.join(ABS_PATH, "db")
-CHROMA_ID_FULL_JSON = 'history'
-
+# CHROMA_ID_FULL_JSON = 'history'
 
 
 if not (os.path.exists(os.path.join(DB_DIR, 'chroma-collections.parquet')) and os.path.exists(
@@ -35,20 +33,20 @@ else:
     )
     vectorstore.persist()
 
-def load_from_vectorstore():
-    read_history = vectorstore._collection.get(ids=[CHROMA_ID_FULL_JSON], include=["documents"])
+
+def load_from_vectorstore(id):
+    read_history = vectorstore._collection.get(ids=[id], include=["documents"])
     print(read_history)
     if len(read_history['documents']) > 0 and len(read_history['documents'][0]) > 0:
         return json.loads(read_history['documents'][0])
 
 
-def save_to_vectorstore(ids, text):
-    vectorstore._collection.upsert(ids=[ids], documents=[json.dumps(text)])
+def save_to_vectorstore(id, text):
+    vectorstore._collection.upsert(ids=[id], documents=[json.dumps(text)])
     vectorstore.persist()
 
 
-def load_history():
-    history_load = load_from_vectorstore()
+def load_history(id):
+    history_load = load_from_vectorstore(id)
     if history_load:
         return history_load
-

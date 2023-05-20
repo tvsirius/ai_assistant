@@ -13,7 +13,6 @@ import signal
 print('Starting app...')
 print('Running on http://127.0.0.1:5000')
 
-
 if __name__ == '__main__':
     # signal.signal(signal.SIGINT, shutdown)
     server_w = make_server('localhost', 5000, server)

@@ -3,23 +3,29 @@ import sys, os
 from flask import Flask, redirect, render_template, request, url_for
 
 from langchain.chat_models import ChatOpenAI
-from langchain.schema import AIMessage, HumanMessage, SystemMessage, BaseMessage, Document, messages_from_dict, \
-    messages_to_dict
+from langchain.schema import AIMessage, HumanMessage, SystemMessage, BaseMessage, Document, \
+    messages_from_dict, messages_to_dict
 from langchain.memory import ConversationBufferMemory, ChatMessageHistory, ConversationSummaryBufferMemory
 from langchain import OpenAI, PromptTemplate, LLMChain, ConversationChain
 
-from vectorstore import vectorstore, load_history, load_from_vectorstore, save_to_vectorstore, CHROMA_ID_FULL_JSON
-
 # import whisper
 import openai
+
 # import pyttsx3
+
+
+server = Flask(__name__)
 
 from dotenv import dotenv_values
 
 env_vars = dotenv_values('.env')
 OPENAI_API_KEY = env_vars['OPENAI_API_KEY']
 
-server = Flask(__name__)
+from vectorstore import vectorstore, load_history, load_from_vectorstore, save_to_vectorstore
+
+from ai_roles import ai_init_string
+
+CHROMA_ID_FULL_JSON = 'history'
 
 
 def history_formatter(message_list: list[dict]) -> str:
@@ -37,14 +43,12 @@ class CustomPromt(PromptTemplate):
         return super().format(**kwargs)
 
 
-from ai_roles import ai_init_string
-
 template = """{ai_init_string}
 {history}
 Human: {human_input}
 Assistant:"""
 
-AI_ASSISTANT_ROLE = 'alien'
+AI_ASSISTANT_ROLE = "default"
 
 prompt = CustomPromt(
     input_variables=["history", "human_input"],
@@ -63,7 +67,8 @@ conversation = LLMChain(
     prompt=prompt,
 )
 
-history_dict = load_history()
+history_dict = load_history(CHROMA_ID_FULL_JSON)
+
 if history_dict and len(history_dict) > 0:
     history_text = history_formatter(history_dict)
     history_messages = messages_from_dict(history_dict)
@@ -130,8 +135,9 @@ def record():
 def index():
     def html_formatter(message_list: list[dict]) -> str:
         result = ''
-        for message in message_list:
-            result += '<b>' + message["type"].capitalize() + ': </b>' + message["data"]["content"] + "<br>"
+        if len(message_list) > 0:
+            for message in message_list:
+                result += '<b>' + message["type"].capitalize() + ': </b>' + message["data"]["content"] + "<br>"
         return result
 
     if request.method == "POST":
