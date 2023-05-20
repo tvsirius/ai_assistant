@@ -17,6 +17,7 @@
     <script src="{{ url_for('static', filename='js/jquery-3.6.4.min.js') }}"></script>
 </head>
 
+
 <script>
     window.onload = function() {
         var inputField = document.getElementById('myInputField');
@@ -28,7 +29,9 @@
   <img src="{{ url_for('static', filename='image1.gif') }}" class="icon" />
   <h3>Greeting Human!</h3>
   {% if result %}
-  <div class="result">    {{ result|safe }}   </div>
+  <div class="result" id="resultElement">    {{ result|safe }}   </div>
+  {% else %}
+  <div class="result" id="resultElement"></div>
   {% endif %}
 
   <form action="/" method="post">

@@ -47,38 +47,44 @@ mediaRecorder.onstop = function(e) {
         method: 'POST',
         body: formData
       })
-      .then(console.log('1111'))
-//      .then(response => response.json())
-//      .then(console.log('2222'))
-//      .then(data => {
-//      console.log('1')
-//        fetch('/', {  method: 'GET'});
-//             console.log('2')
-//        // display the respond on the browser
-//        out = '<div class="text-primary-emphasis fw-bolder pt-3">' + data["input"] +
-//        '</div><div class="text-body-emphasis">' + data["output"] + '</div>';
-//            console.log('3')
-//        printout.innerHTML += out;
-//              console.log('4')
-//        // move to the bottom of the div
-//        border.scrollTop = border.scrollHeight;
-//              console.log('4')
-//      })
-      .then(console.log('3333'))
+      .then(response => response.json())
+      .then(data => {
+            if (!(data["input"]==='' && data["output"]==="")){
+                console.log('html steps: 1, i got data,\ninput=', data["input"],'\noutput=', data["output"]);
+                out='<b>Human: </b>'+ data["input"]+'<br><b>Ai: </b>'+data["output"]+'<br>'
+                resultElement.innerHTML += out
+              console.log('result updated');
+        // move to the bottom of the page
+        var inputField = document.getElementById('myInputField');
+        inputField.scrollIntoView();
+              console.log('scrolled');
+// --- TEXT TO SPEECH
+        let speech = new SpeechSynthesisUtterance();
+                     console.log('speech step 1 done');
+        speech.text = data["output"]
+                     console.log('speech step 2 done');
+        speech.voice = speechSynthesis.getVoices()[0];
+                     console.log('speech step 3 done');
+        speechSynthesis.speak(speech);
+                     console.log('speech step 4 done');
+        }
+      })
+      .then(console.log('client side  work done'))
       .catch((error) => {
         console.error('Error:', error);
       });
 
-      fetch('/', {
-      method: 'GET'
-      }).then(response => {
-      // Handle the response if needed
-      console.log('GET request to "/" completed successfully.');
-      location.reload();
-    })
-    .catch((error) => {
-      console.error('Error:', error);
-    });
+//      fetch('/', {
+//      method: 'GET'
+//      }).then(response => {
+//      // Handle the response if needed
+//      console.log('GET request to "/" completed successfully.');
+////      location.reload();
+////      console.log('location reload completed successfully');
+//    })
+//    .catch((error) => {
+//      console.error('Error:', error);
+//    });
 
 
       chunks = [];
