@@ -40,7 +40,7 @@ mediaRecorder.onstop = function(e) {
       const blob = new Blob(chunks, { type: "audio/webm" });
       // add it to the form
       const formData = new FormData();
-      console.log('sending data')
+      console.log('audio sending data')
       formData.append('audio', blob, 'recording.webm');
       // send the audio blob to the server
       fetch('/record', {
@@ -50,47 +50,29 @@ mediaRecorder.onstop = function(e) {
       .then(response => response.json())
       .then(data => {
             if (!(data["input"]==='' && data["output"]==="")){
-                console.log('html steps: 1, i got data,\ninput=', data["input"],'\noutput=', data["output"]);
+                console.log('aduio html steps: 1, i got data,\ninput=', data["input"],'\noutput=', data["output"]);
                 out='<b>Human: </b>'+ data["input"]+'<br><b>Ai: </b>'+data["output"]+'<br>'
                 resultElement.innerHTML += out
-              console.log('result updated');
+              console.log('audio result updated');
         // move to the bottom of the page
         var inputField = document.getElementById('myInputField');
         inputField.scrollIntoView();
-              console.log('scrolled');
-// --- TEXT TO SPEECH
+
+        // --- TEXT TO SPEECH
         let speech = new SpeechSynthesisUtterance();
-                     console.log('speech step 1 done');
         speech.text = data["output"]
-                     console.log('speech step 2 done');
         speech.voice = speechSynthesis.getVoices()[0];
-                     console.log('speech step 3 done');
         speechSynthesis.speak(speech);
-                     console.log('speech step 4 done');
+                     console.log('speech Synthesis done');
         }
       })
-      .then(console.log('client side  work done'))
+      .then(console.log('audio client side done'))
       .catch((error) => {
-        console.error('Error:', error);
+        console.error('audio Error:', error);
       });
-
-//      fetch('/', {
-//      method: 'GET'
-//      }).then(response => {
-//      // Handle the response if needed
-//      console.log('GET request to "/" completed successfully.');
-////      location.reload();
-////      console.log('location reload completed successfully');
-//    })
-//    .catch((error) => {
-//      console.error('Error:', error);
-//    });
-
 
       chunks = [];
     }
-      //
-
 
     // add the data into chunks when its available
     mediaRecorder.ondataavailable = function(e) {
@@ -155,3 +137,48 @@ window.onresize = function() {
 }
 
 window.onresize();
+
+// Button click event handler function
+function handleButtonClick() {
+    event.preventDefault();
+  // Get the text value from the HTML form
+  const textValue = document.getElementById('myInputField').value;
+  console.log('get text val=', textValue);
+  if (!(textValue==='')){
+
+  // Create a FormData object
+  const formData = new FormData();
+  formData.append('text', textValue);
+         console.log('text_send req');
+  // Send the form data to the server
+  fetch('/text_input', {
+    method: 'POST',
+    body: formData
+  })
+    .then(response => response.json())
+    .then(data => {
+      if ((data["input"] === 'clear history' && data["output"] === 'conversation history cleaned')) {
+        location.reload();
+      }
+      if (!(data["input"] === '' && data["output"] === '')) {
+        console.log('text_input: 1, i got data,\ninput=', data["input"], '\noutput=', data["output"]);
+        out = '<b>Human: </b>' + data["input"] + '<br><b>Ai: </b>' + data["output"] + '<br>';
+        resultElement.innerHTML += out;
+        console.log('text_input result updated');
+        // move to the bottom of the page
+        var inputField = document.getElementById('myInputField');
+        inputField.scrollIntoView();
+        inputField.value=''
+
+      }
+    })
+    .then(console.log('text client side done'))
+    .catch(error => {
+      console.error('text_input Error:', error);
+    });
+
+}
+}
+
+// Attach the event listener to the button
+document.getElementById("myButton").addEventListener("click", handleButtonClick);
