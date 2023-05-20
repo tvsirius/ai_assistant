@@ -36,7 +36,7 @@ class CustomPromt(PromptTemplate):
         kwargs["history"] = history_formatter(messages_to_dict(kwargs["history"]))
         return super().format(**kwargs)
 
-from ai_init_strings import ai_init_string
+from ai_roles import ai_init_string
 
 template = """{ai_init_string}
 {history}
