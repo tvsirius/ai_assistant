@@ -11,7 +11,7 @@ Application should save previous conversation history into a memory (Chroma), an
 
 
 
-current version 1.0 alpha
+current version 1.0 beta
 
 
 All task goals accomplished.
